@@ -1,36 +1,40 @@
 <template>
   <div class="sidebar">
-    <div 
-      class="menu-item" 
-      :class="{ active: activeMenu === 'server' }"
-      @click="setActiveMenu('server')"
-    >
-      <div class="menu-icon">🖥️</div>
-      <div class="menu-text">服务器</div>
+    <div class="menu-top">
+      <div 
+        class="menu-item" 
+        :class="{ active: activeMenu === 'server' }"
+        @click="setActiveMenu('server')"
+      >
+        <div class="menu-icon">🖥️</div>
+        <div class="menu-text">服务器</div>
+      </div>
+      <div 
+        class="menu-item" 
+        :class="{ active: activeMenu === 'data' }"
+        @click="setActiveMenu('data')"
+      >
+        <div class="menu-icon">📊</div>
+        <div class="menu-text">数据浏览</div>
+      </div>
     </div>
-    <div 
-      class="menu-item" 
-      :class="{ active: activeMenu === 'data' }"
-      @click="setActiveMenu('data')"
-    >
-      <div class="menu-icon">📊</div>
-      <div class="menu-text">数据浏览</div>
-    </div>
-    <div 
-      class="menu-item" 
-      :class="{ active: activeMenu === 'settings' }"
-      @click="setActiveMenu('settings')"
-    >
-      <div class="menu-icon">⚙️</div>
-      <div class="menu-text">设置</div>
-    </div>
-    <div 
-      class="menu-item" 
-      :class="{ active: activeMenu === 'github' }"
-      @click="openGitHub"
-    >
-      <div class="menu-icon">🐙</div>
-      <div class="menu-text">GITHUB</div>
+    <div class="menu-bottom">
+      <div 
+        class="menu-item" 
+        :class="{ active: activeMenu === 'settings' }"
+        @click="setActiveMenu('settings')"
+      >
+        <div class="menu-icon">⚙️</div>
+        <div class="menu-text">设置</div>
+      </div>
+      <div 
+        class="menu-item" 
+        :class="{ active: activeMenu === 'github' }"
+        @click="openGitHub"
+      >
+        <div class="menu-icon">🐙</div>
+        <div class="menu-text">GITHUB</div>
+      </div>
     </div>
   </div>
 </template>
@@ -69,8 +73,18 @@ onMounted(() => {
   color: #333333;
   display: flex;
   flex-direction: column;
-  /* padding: 12px 0; */
+  justify-content: space-between;
   border-right: 1px solid #e0e0e0;
+}
+
+.menu-top {
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-bottom {
+  display: flex;
+  flex-direction: column;
 }
 
 .menu-item {
