@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import Sidebar from './components/Sidebar.vue'
-import MainContent from './components/MainContent.vue'
 import { NMessageProvider } from 'naive-ui'
+import { RouterView } from 'vue-router'
 
 const activeMenu = ref('server')
 
@@ -16,7 +16,7 @@ const handleMenuChange = (menu: string) => {
     <div class="app">
       <div class="main-container">
         <Sidebar @menu-change="handleMenuChange" />
-        <MainContent :active-menu="activeMenu" />
+        <RouterView style="width: 100%;height: 100%;" />
       </div>
     </div>
   </n-message-provider>

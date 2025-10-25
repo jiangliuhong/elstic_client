@@ -41,17 +41,32 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 // 暂时移除插件导入以避免构建错误
 
 // 定义事件发射器
 const emit = defineEmits(['menu-change'])
 
 const activeMenu = ref('server')
+const router = useRouter()
 
 const setActiveMenu = (menu: string) => {
   activeMenu.value = menu
   // 发送事件给父组件
   emit('menu-change', menu)
+  
+  // 导航到相应路由
+  switch (menu) {
+    case 'server':
+      router.push('/server')
+      break
+    case 'data':
+      router.push('/data')
+      break
+    case 'settings':
+      // 设置页面路由
+      break
+  }
 }
 
 const openGitHub = () => {
@@ -62,6 +77,7 @@ const openGitHub = () => {
 // 组件挂载时默认激活服务器菜单
 onMounted(() => {
   emit('menu-change', 'server')
+  router.push('/server')
 })
 </script>
 

@@ -4,7 +4,7 @@
       <ServerView />
     </div>
     <div v-else-if="activeMenu === 'data'">
-      <div class="placeholder">数据浏览页面</div>
+      <DataView />
     </div>
     <div v-else-if="activeMenu === 'settings'">
       <div class="placeholder">设置页面</div>
@@ -16,10 +16,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
 import ServerView from '../views/ServerView.vue'
+import DataView from '../views/DataView.vue'
 
-const props = defineProps<{
+defineProps<{
   activeMenu: string
 }>()
 
