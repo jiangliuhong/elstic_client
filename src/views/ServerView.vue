@@ -2,8 +2,8 @@
   <div class="server-view">
     <h2>服务器管理</h2>
     <div class="server-controls">
-      <button class="btn btn-primary" @click="addServer">添加服务器</button>
-      <button class="btn btn-secondary" @click="refreshServers">刷新</button>
+      <n-button type="primary" @click="addServer">添加服务器</n-button>
+      <n-button @click="refreshServers">刷新</n-button>
     </div>
     
     <div class="server-layout">
@@ -22,8 +22,8 @@
               <div class="server-url">{{ server.url }}</div>
             </div>
             <div class="server-actions">
-              <button class="btn btn-small" @click.stop="connectToServer(server.id)">连接</button>
-              <button class="btn btn-small btn-danger" @click.stop="removeServer(server.id)">删除</button>
+              <n-button size="small" @click.stop="connectToServer(server.id)">连接</n-button>
+              <n-button size="small" type="error" @click.stop="removeServer(server.id)">删除</n-button>
             </div>
           </div>
         </div>
@@ -33,53 +33,40 @@
       <div class="server-detail-panel">
         <div v-if="hasServerData()" class="server-detail">
           <h3>{{ getFormTitle() }}</h3>
-          <form @submit.prevent="handleSubmit">
-            <div class="form-group">
-              <label for="serverName">服务器名称</label>
-              <input 
-                type="text" 
-                id="serverName" 
-                v-model="getCurrentModel().name" 
-                :readonly="mode === 'view'"
-                required
-              >
-            </div>
-            <div class="form-group">
-              <label for="serverUrl">服务器地址</label>
-              <input 
-                type="text" 
-                id="serverUrl" 
-                v-model="getCurrentModel().url" 
-                :readonly="mode === 'view'"
-                required
-              >
-            </div>
-            <div class="form-group">
-              <label for="serverUsername">用户名</label>
-              <input 
-                type="text" 
-                id="serverUsername" 
-                v-model="getCurrentModel().username"
-                :readonly="mode === 'view'"
-              >
-            </div>
-            <div class="form-group">
-              <label for="serverPassword">密码</label>
-              <input 
-                type="password" 
-                id="serverPassword" 
-                v-model="getCurrentModel().password"
-                :readonly="mode === 'view'"
-              >
-            </div>
+          <n-form ref="formRef" :model="formModel" :rules="rules" :disabled="mode === 'view'">
+            <n-form-item label="服务器名称" path="name" :show-require-mark="true">
+              <n-input 
+                v-model:value="formModel.name" 
+                placeholder="请输入服务器名称"
+              />
+            </n-form-item>
+            <n-form-item label="服务器地址" path="url" :show-require-mark="true">
+              <n-input 
+                v-model:value="formModel.url" 
+                placeholder="请输入服务器地址"
+              />
+            </n-form-item>
+            <n-form-item label="用户名" path="username">
+              <n-input 
+                v-model:value="formModel.username"
+                placeholder="请输入用户名"
+              />
+            </n-form-item>
+            <n-form-item label="密码" path="password">
+              <n-input 
+                v-model:value="formModel.password"
+                type="password"
+                placeholder="请输入密码"
+              />
+            </n-form-item>
             <div class="form-actions" v-if="mode !== 'view'">
-              <button type="submit" class="btn btn-primary">{{ isEditing ? '更新' : '保存' }}</button>
-              <button type="button" class="btn btn-secondary" @click="cancelForm">取消</button>
+              <n-button type="primary" @click="handleSubmit">{{ isEditing ? '更新' : '保存' }}</n-button>
+              <n-button @click="cancelForm">取消</n-button>
             </div>
             <div class="form-actions" v-else>
-              <button type="button" class="btn btn-secondary" @click="editServer(selectedServer!)">编辑</button>
+              <n-button @click="editServer(selectedServer!)">编辑</n-button>
             </div>
-          </form>
+          </n-form>
         </div>
         <div v-else class="no-selection">
           <p>请选择一个服务器查看详情</p>
@@ -92,6 +79,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useMessage } from 'naive-ui'
+import type { FormInst, FormRules } from 'naive-ui'
 
 interface Server {
   id: string
@@ -108,6 +97,7 @@ const servers = ref<Server[]>([
 const selectedServer = ref<Server | null>(null)
 const mode = ref<'view' | 'form'>('view') // 'view' or 'form'
 const isEditing = ref(false)
+const formRef = ref<FormInst | null>(null)
 
 // 统一的表单模型
 const formModel = ref({
@@ -117,6 +107,21 @@ const formModel = ref({
   username: '',
   password: ''
 })
+
+const message = useMessage()
+
+const rules: FormRules = {
+  name: {
+    required: true,
+    message: '请输入服务器名称',
+    trigger: ['input', 'blur']
+  },
+  url: {
+    required: true,
+    message: '请输入服务器地址',
+    trigger: ['input', 'blur']
+  }
+}
 
 const hasServerData = () => {
   return selectedServer.value || mode.value === 'form'
@@ -168,34 +173,40 @@ const editServer = (server: Server) => {
 }
 
 const handleSubmit = () => {
-  if (formModel.value.name && formModel.value.url) {
-    if (isEditing.value) {
-      // 更新服务器
-      const index = servers.value.findIndex(s => s.id === formModel.value.id)
-      if (index !== -1) {
-        servers.value[index] = {
-          id: formModel.value.id,
-          name: formModel.value.name,
-          url: formModel.value.url,
+  formRef.value?.validate((errors) => {
+    if (!errors) {
+      if (isEditing.value) {
+        // 更新服务器
+        const index = servers.value.findIndex(s => s.id === formModel.value.id)
+        if (index !== -1) {
+          servers.value[index] = {
+            id: formModel.value.id,
+            name: formModel.value.name.trim(),
+            url: formModel.value.url.trim(),
+            username: formModel.value.username || undefined,
+            password: formModel.value.password || undefined
+          }
+          selectedServer.value = servers.value[index]
+          message.success('服务器更新成功')
+        }
+      } else {
+        // 添加新服务器
+        const newServer: Server = {
+          id: Date.now().toString(),
+          name: formModel.value.name.trim(),
+          url: formModel.value.url.trim(),
           username: formModel.value.username || undefined,
           password: formModel.value.password || undefined
         }
-        selectedServer.value = servers.value[index]
+        servers.value.push(newServer)
+        selectedServer.value = newServer
+        message.success('服务器添加成功')
       }
+      mode.value = 'view'
     } else {
-      // 添加新服务器
-      const newServer: Server = {
-        id: Date.now().toString(),
-        name: formModel.value.name,
-        url: formModel.value.url,
-        username: formModel.value.username || undefined,
-        password: formModel.value.password || undefined
-      }
-      servers.value.push(newServer)
-      selectedServer.value = newServer
+      message.error('请填写必填字段')
     }
-    mode.value = 'view'
-  }
+  })
 }
 
 const cancelForm = () => {
@@ -213,6 +224,14 @@ const removeServer = (id: string) => {
 const selectServer = (server: Server) => {
   selectedServer.value = server
   mode.value = 'view'
+  // 在查看模式下，更新formModel以显示选中的服务器信息
+  formModel.value = {
+    id: server.id,
+    name: server.name,
+    url: server.url,
+    username: server.username || '',
+    password: server.password || ''
+  }
 }
 
 const connectToServer = (id: string) => {

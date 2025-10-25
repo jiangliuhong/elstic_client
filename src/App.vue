@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import Sidebar from './components/Sidebar.vue'
 import MainContent from './components/MainContent.vue'
+import { NMessageProvider } from 'naive-ui'
 
 const activeMenu = ref('server')
 
@@ -11,12 +12,14 @@ const handleMenuChange = (menu: string) => {
 </script>
 
 <template>
-  <div class="app">
-    <div class="main-container">
-      <Sidebar @menu-change="handleMenuChange" />
-      <MainContent :active-menu="activeMenu" />
+  <n-message-provider>
+    <div class="app">
+      <div class="main-container">
+        <Sidebar @menu-change="handleMenuChange" />
+        <MainContent :active-menu="activeMenu" />
+      </div>
     </div>
-  </div>
+  </n-message-provider>
 </template>
 
 <style scoped>
