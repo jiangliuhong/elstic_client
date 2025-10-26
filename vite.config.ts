@@ -31,20 +31,20 @@ export default defineConfig(async () => ({
   clearScreen: false,
   // 2. tauri expects a fixed port, fail if that port is not available
   server: {
-    port: 0, // 使用随机可用端口
-    strictPort: false,
+    port: 1420,
+    strictPort: true,
     host: host || false,
     hmr: host
       ? {
-          protocol: "ws",
-          host,
-          port: 0,
-        }
+        protocol: "ws",
+        host,
+        port: 1421,
+      }
       : undefined,
     watch: {
       // 3. tell Vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],
-    },
+    }
   },
   define: {
     global: 'globalThis',

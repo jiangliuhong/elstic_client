@@ -1,4 +1,6 @@
-// 浏览器兼容的Elasticsearch服务
+// HTTP请求方式的Elasticsearch服务
+import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
+
 interface ServerConfig {
   url: string;
   username?: string;
@@ -64,46 +66,56 @@ interface CatShardsResponse {
 
 class ElasticsearchService {
   private config: ServerConfig;
+  private client: AxiosInstance;
 
   constructor(config: ServerConfig) {
     this.config = config;
-  }
-
-  private getAuthHeaders() {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    };
-
-    if (this.config.username && this.config.password) {
-      const auth = btoa(`${this.config.username}:${this.config.password}`);
-      headers['Authorization'] = `Basic ${auth}`;
+    let authUrl = "";
+    
+    if (this.config.username) {
+      if (this.config.url.startsWith("http://")) {
+        authUrl = `http://${this.config.username}:${this.config.password}@${this.config.url.substring(7)}`;
+      } else {
+        authUrl = `https://${this.config.username}:${this.config.password}@${this.config.url.substring(7)}`;
+      }
+    } else {
+      authUrl = this.config.url;
     }
 
-    return headers;
+    // 创建axios实例
+    this.client = axios.create({
+      baseURL: authUrl,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    });
+
+    // 添加响应拦截器处理错误
+    this.client.interceptors.response.use(
+      response => response,
+      error => {
+        console.error('Elasticsearch request failed:', error);
+        return Promise.reject(error);
+      }
+    );
   }
 
-  private async request(endpoint: string, options: RequestInit = {}) {
-    const url = `${this.config.url}${endpoint}`;
-    const headers = {
-      ...this.getAuthHeaders(),
-      ...options.headers,
+  private async request(endpoint: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET', data?: any) {
+    const config: AxiosRequestConfig = {
+      method,
+      url: endpoint
     };
 
+    if (data) {
+      config.data = data;
+    }
+
     try {
-      const response = await fetch(url, {
-        ...options,
-        headers,
-        mode: 'cors',
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      return await response.json();
+      const response = await this.client.request(config);
+      return response.data;
     } catch (error) {
-      console.error(`Request to ${url} failed:`, error);
+      console.error(`Request to ${endpoint} failed:`, error);
       throw error;
     }
   }
