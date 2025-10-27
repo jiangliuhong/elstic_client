@@ -1,5 +1,5 @@
 // Tauri命令方式的Elasticsearch服务
-import { invoke } from '@tauri-apps/api/tauri';
+import { invoke } from '@tauri-apps/api/core';
 
 interface ServerConfig {
   url: string;

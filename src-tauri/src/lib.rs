@@ -1,14 +1,16 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use elasticsearch::{
-    http::transport::Transport,
+    auth::Credentials,
+    http::transport::{SingleNodeConnectionPool, TransportBuilder},
     Elasticsearch,
     Error,
-    CatCatShardsParts,
-    ClusterHealthParts,
-    NodesParts,
-    IndicesIndicesStatsParts,
+    cluster::ClusterHealthParts,
+    indices::IndicesStatsParts,
+    nodes::NodesInfoParts,
+    cat::CatShardsParts,
 };
 use serde_json::Value;
+use url::Url;
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -65,7 +67,7 @@ async fn get_nodes_info(url: &str, username: Option<&str>, password: Option<&str
         Ok(client) => {
             match client
                 .nodes()
-                .info(NodesParts::None)
+                .info(NodesInfoParts::None)
                 .send()
                 .await {
                     Ok(response) => {
@@ -87,7 +89,7 @@ async fn get_indices_stats(url: &str, username: Option<&str>, password: Option<&
         Ok(client) => {
             match client
                 .indices()
-                .stats(IndicesIndicesStatsParts::None)
+                .stats(IndicesStatsParts::None)
                 .send()
                 .await {
                     Ok(response) => {
@@ -109,8 +111,8 @@ async fn get_shards(url: &str, username: Option<&str>, password: Option<&str>) -
         Ok(client) => {
             match client
                 .cat()
-                .shards(CatCatShardsParts::None)
-                .format(Some("json"))
+                .shards(CatShardsParts::None)
+                .format("json")
                 .send()
                 .await {
                     Ok(response) => {
@@ -127,12 +129,17 @@ async fn get_shards(url: &str, username: Option<&str>, password: Option<&str>) -
 }
 
 fn create_elasticsearch_client(url: &str, username: Option<&str>, password: Option<&str>) -> Result<Elasticsearch, Error> {
+    let url = Url::parse(url)?;
+    let conn_pool = SingleNodeConnectionPool::new(url);
+    
     let transport = if let (Some(user), Some(pass)) = (username, password) {
         // Create transport with authentication
-        Transport::single_node_with_auth(url, user, pass)?
+        let credentials = Credentials::Basic(user.to_string(), pass.to_string());
+        let transport = TransportBuilder::new(conn_pool).auth(credentials).build()?;
+        transport
     } else {
         // Create transport without authentication
-        Transport::single_node(url)?
+        TransportBuilder::new(conn_pool).build()?
     };
     
     Ok(Elasticsearch::new(transport))

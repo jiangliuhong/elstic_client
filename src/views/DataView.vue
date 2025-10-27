@@ -109,12 +109,13 @@ const indicesInfo = ref({
   size: '2.4 GB'
 })
 
-const shardColumns = ref([
-  { title: '索引', key: 'index' },
-  { title: '分片', key: 'shard' },
-  { title: '类型', key: 'type' },
-  { title: '状态', key: 'status' },
-  { title: '节点', key: 'node' }
+const shardColumns = ref([
+  { title: '索引', key: 'index' },
+  { title: '分片', key: 'shard' },
+  { title: '主/副本', key: 'prirep' },
+  { title: '类型', key: 'type' },
+  { title: '状态', key: 'status' },
+  { title: '节点', key: 'node' }
 ])
 
 const shardData = ref([
