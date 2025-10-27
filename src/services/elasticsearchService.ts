@@ -1,5 +1,5 @@
-// HTTP请求方式的Elasticsearch服务
-import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
+// Tauri命令方式的Elasticsearch服务
+import { invoke } from '@tauri-apps/api/tauri';
 
 interface ServerConfig {
   url: string;
@@ -66,83 +66,84 @@ interface CatShardsResponse {
 
 class ElasticsearchService {
   private config: ServerConfig;
-  private client: AxiosInstance;
 
   constructor(config: ServerConfig) {
     this.config = config;
-    let authUrl = "";
-    
-    if (this.config.username) {
-      if (this.config.url.startsWith("http://")) {
-        authUrl = `http://${this.config.username}:${this.config.password}@${this.config.url.substring(7)}`;
-      } else {
-        authUrl = `https://${this.config.username}:${this.config.password}@${this.config.url.substring(7)}`;
-      }
-    } else {
-      authUrl = this.config.url;
-    }
-
-    // 创建axios实例
-    this.client = axios.create({
-      baseURL: authUrl,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      }
-    });
-
-    // 添加响应拦截器处理错误
-    this.client.interceptors.response.use(
-      response => response,
-      error => {
-        console.error('Elasticsearch request failed:', error);
-        return Promise.reject(error);
-      }
-    );
-  }
-
-  private async request(endpoint: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET', data?: any) {
-    const config: AxiosRequestConfig = {
-      method,
-      url: endpoint
-    };
-
-    if (data) {
-      config.data = data;
-    }
-
-    try {
-      const response = await this.client.request(config);
-      return response.data;
-    } catch (error) {
-      console.error(`Request to ${endpoint} failed:`, error);
-      throw error;
-    }
   }
 
   // 获取集群健康状态
   async getClusterHealth(): Promise<ClusterHealthResponse> {
-    return await this.request('/_cluster/health');
+    try {
+      const result = await invoke('get_cluster_health', {
+        url: this.config.url,
+        username: this.config.username,
+        password: this.config.password
+      });
+      return result as ClusterHealthResponse;
+    } catch (error) {
+      console.error('获取集群健康状态失败:', error);
+      throw error;
+    }
   }
 
   // 获取集群信息
   async getClusterInfo(): Promise<ClusterInfoResponse> {
-    return await this.request('/');
+    try {
+      const result = await invoke('get_cluster_info', {
+        url: this.config.url,
+        username: this.config.username,
+        password: this.config.password
+      });
+      return result as ClusterInfoResponse;
+    } catch (error) {
+      console.error('获取集群信息失败:', error);
+      throw error;
+    }
   }
 
   // 获取节点信息
   async getNodesInfo(): Promise<NodesInfoResponse> {
-    return await this.request('/_nodes');
+    try {
+      const result = await invoke('get_nodes_info', {
+        url: this.config.url,
+        username: this.config.username,
+        password: this.config.password
+      });
+      return result as NodesInfoResponse;
+    } catch (error) {
+      console.error('获取节点信息失败:', error);
+      throw error;
+    }
   }
 
   // 获取索引统计信息
   async getIndicesStats(): Promise<IndicesStatsResponse> {
-    return await this.request('/_stats');
+    try {
+      const result = await invoke('get_indices_stats', {
+        url: this.config.url,
+        username: this.config.username,
+        password: this.config.password
+      });
+      return result as IndicesStatsResponse;
+    } catch (error) {
+      console.error('获取索引统计信息失败:', error);
+      throw error;
+    }
   }
 
   // 获取分片信息
   async getShards(): Promise<CatShardsResponse> {
-    return await this.request('/_cat/shards?format=json');
+    try {
+      const result = await invoke('get_shards', {
+        url: this.config.url,
+        username: this.config.username,
+        password: this.config.password
+      });
+      return result as CatShardsResponse;
+    } catch (error) {
+      console.error('获取分片信息失败:', error);
+      throw error;
+    }
   }
 }
 
