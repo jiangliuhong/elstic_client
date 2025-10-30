@@ -7,6 +7,16 @@ interface ServerConfig {
   password?: string;
 }
 
+interface Server {
+  id: string;
+  name: string;
+  url: string;
+  username?: string;
+  password?: string;
+  connected?: boolean;
+  connectionError?: string;
+}
+
 interface ClusterHealthResponse {
   cluster_name: string;
   status: string;
@@ -69,6 +79,27 @@ class ElasticsearchService {
 
   constructor(config: ServerConfig) {
     this.config = config;
+  }
+
+  // 测试服务器连接
+  static async testConnection(server: Server): Promise<{ success: boolean; error?: string }> {
+    try {
+      const result = await invoke('test_elasticsearch_connection', {
+        url: server.url,
+        username: server.username,
+        password: server.password
+      });
+      
+      return result as { success: boolean; error?: string };
+    } catch (error) {
+      let errorMessage = '未知错误'
+      
+      if (error instanceof Error) {
+        errorMessage = error.message
+      }
+      
+      return { success: false, error: errorMessage }
+    }
   }
 
   // 获取集群健康状态
@@ -150,6 +181,7 @@ class ElasticsearchService {
 export default ElasticsearchService;
 export type {
   ServerConfig,
+  Server,
   ClusterHealthResponse,
   ClusterInfoResponse,
   NodesInfoResponse,

@@ -131,18 +131,11 @@
 import { ref, onMounted, computed } from 'vue'
 import { useMessage } from 'naive-ui'
 import type { FormInst, FormRules } from 'naive-ui'
-import { addConnectedServer, setActiveServer } from '../stores/serverStore'
+import { addConnectedServer, setActiveServer, getConnectedServers } from '../stores/serverStore'
 import { useRouter } from 'vue-router'
+import ElasticsearchService, { type Server } from '../services/elasticsearchService'
 
-interface Server {
-  id: string
-  name: string
-  url: string
-  username?: string
-  password?: string
-  connected?: boolean
-  connectionError?: string
-}
+
 
 const servers = ref<Server[]>([
   { id: '1', name: '本地服务器', url: 'http://139.159.160.236:9200', username: 'elastic', password: '!Imprt^Gk', connected: false }
@@ -168,14 +161,32 @@ const router = useRouter()
 
 // 过滤后的服务器列表
 const filteredServers = computed(() => {
+  let displayServers = [...servers.value]
+  
+  // 同步连接状态
+  displayServers = displayServers.map(server => {
+    const connectedServer = connectedServers.value.find(cs => cs.id === server.id)
+    if (connectedServer) {
+      return {
+        ...server,
+        connected: connectedServer.connected,
+        connectionError: connectedServer.connectionError
+      }
+    }
+    return server
+  })
+  
   if (!filterText.value) {
-    return servers.value
+    return displayServers
   }
   const filter = filterText.value.toLowerCase()
-  return servers.value.filter(server => 
+  return displayServers.filter(server => 
     server.name.toLowerCase().includes(filter)
   )
 })
+
+// 获取已连接的服务器
+const connectedServers = computed(() => getConnectedServers())
 
 const rules: FormRules = {
   name: {
@@ -301,27 +312,34 @@ const connectToServer = async (id: string) => {
   message.info(`正在连接到 ${server.name}...`)
   
   try {
-    // 模拟连接过程（实际应用中这里应该是真实的API调用）
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    // 使用服务层测试连接
+    const result = await ElasticsearchService.testConnection(server)
     
-    // 模拟连接成功
-    server.connected = true
-    server.connectionError = undefined
-    
-    // 添加到已连接服务器列表
-    addConnectedServer(server)
-    
-    // 设置为活动服务器
-    setActiveServer(server)
-    
-    message.success(`成功连接到 ${server.name}`)
-    
-    // 跳转到数据浏览页
-    router.push('/data')
+    if (result.success) {
+      // 连接成功
+      server.connected = true
+      server.connectionError = undefined
+      
+      // 添加到已连接服务器列表
+      addConnectedServer(server)
+      
+      // 设置为活动服务器
+      setActiveServer(server)
+      
+      message.success(`成功连接到 ${server.name}`)
+      
+      // 跳转到数据浏览页
+      router.push('/data')
+    } else {
+      // 连接失败
+      server.connected = false
+      server.connectionError = '连接失败'
+      message.error(`连接到 ${server.name} 失败: ${result.error}`)
+    }
   } catch (error) {
     server.connected = false
     server.connectionError = '连接失败'
-    message.error(`连接到 ${server.name} 失败: ${error}`)
+    message.error(`连接到 ${server.name} 失败: 未知错误`)
   }
 }
 

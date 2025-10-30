@@ -128,6 +128,67 @@ async fn get_shards(url: &str, username: Option<&str>, password: Option<&str>) -
     }
 }
 
+#[tauri::command]
+async fn test_elasticsearch_connection(url: &str, username: Option<&str>, password: Option<&str>) -> Result<Value, String> {
+    match create_elasticsearch_client(url, username, password) {
+        Ok(client) => {
+            // 先尝试获取集群信息
+            match client.info().send().await {
+                Ok(response) => {
+                    match response.json::<Value>().await {
+                        Ok(json) => {
+                            // 检查是否是有效的ElasticSearch响应
+                            if json.get("tagline").is_some() || json.get("version").is_some() {
+                                Ok(serde_json::json!({
+                                    "success": true
+                                }))
+                            } else {
+                                Err("服务器响应不符合ElasticSearch格式".to_string())
+                            }
+                        },
+                        Err(_e) => Err("解析响应失败".to_string()),
+                    }
+                },
+                Err(_e) => {
+                    // 如果根路径失败，尝试集群健康检查
+                    match client.cluster().health(ClusterHealthParts::None).send().await {
+                        Ok(response) => {
+                            match response.json::<Value>().await {
+                                Ok(json) => {
+                                    if json.get("cluster_name").is_some() || json.get("status").is_some() {
+                                        Ok(serde_json::json!({
+                                            "success": true
+                                        }))
+                                    } else {
+                                        Err("服务器响应不符合ElasticSearch格式".to_string())
+                                    }
+                                },
+                                Err(_e) => Err("解析响应失败".to_string()),
+                            }
+                        },
+                        Err(e) => {
+                            // 提供友好的错误信息
+                            let error_msg = e.to_string();
+                            if error_msg.contains("401") {
+                                Err("认证失败，请检查用户名和密码".to_string())
+                            } else if error_msg.contains("403") {
+                                Err("权限不足".to_string())
+                            } else if error_msg.contains("404") {
+                                Err("找不到ElasticSearch服务，请检查URL".to_string())
+                            } else if error_msg.contains("unreachable") || error_msg.contains("connection") {
+                                Err("网络连接失败，请检查服务器地址".to_string())
+                            } else {
+                                Err(format!("连接失败: {}", error_msg))
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        Err(e) => Err(format!("创建Elasticsearch客户端失败: {}", e)),
+    }
+}
+
 fn create_elasticsearch_client(url: &str, username: Option<&str>, password: Option<&str>) -> Result<Elasticsearch, Error> {
     let url = Url::parse(url)?;
     let conn_pool = SingleNodeConnectionPool::new(url);
@@ -151,6 +212,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             greet,
+            test_elasticsearch_connection,
             get_cluster_health,
             get_cluster_info,
             get_nodes_info,

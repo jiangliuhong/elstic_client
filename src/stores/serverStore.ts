@@ -47,6 +47,14 @@ const removeConnectedServer = (serverId: string) => {
 // 设置活动服务器
 const setActiveServer = (server: Server) => {
   activeServer.value = server
+  
+  // 确保服务器在已连接列表中
+  const existingIndex = connectedServers.value.findIndex(s => s.id === server.id)
+  if (existingIndex === -1) {
+    connectedServers.value.push({ ...server, connected: true })
+  } else {
+    connectedServers.value[existingIndex] = { ...server, connected: true }
+  }
 }
 
 // 获取连接的服务器

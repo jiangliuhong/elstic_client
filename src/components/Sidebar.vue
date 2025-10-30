@@ -40,8 +40,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 // 暂时移除插件导入以避免构建错误
 
 // 定义事件发射器
@@ -49,6 +49,23 @@ const emit = defineEmits(['menu-change'])
 
 const activeMenu = ref('server')
 const router = useRouter()
+const route = useRoute()
+
+// 根据当前路由设置活动菜单
+const updateActiveMenuFromRoute = () => {
+  switch (route.path) {
+    case '/server':
+      activeMenu.value = 'server'
+      break
+    case '/data':
+      activeMenu.value = 'data'
+      break
+    default:
+      activeMenu.value = 'server'
+      break
+  }
+  emit('menu-change', activeMenu.value)
+}
 
 const setActiveMenu = (menu: string) => {
   activeMenu.value = menu
@@ -74,10 +91,14 @@ const openGitHub = () => {
   console.log('打开GitHub')
 }
 
-// 组件挂载时默认激活服务器菜单
+// 监听路由变化
+watch(() => route.path, () => {
+  updateActiveMenuFromRoute()
+})
+
+// 组件挂载时根据当前路由设置菜单
 onMounted(() => {
-  emit('menu-change', 'server')
-  router.push('/server')
+  updateActiveMenuFromRoute()
 })
 </script>
 
