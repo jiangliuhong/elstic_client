@@ -54,7 +54,7 @@
         <n-skeleton v-if="loading.shards" :repeat="2" />
         <div v-else class="shard-list-container">
           <n-scrollbar
-            :style="{ 'max-height': scrollbarMaxHeight }"
+            :style="{ 'max-height': scrollbarMaxHeight, 'height': scrollbarMaxHeight }"
             :bordered="true"
             :show-divider="true"
           >
@@ -190,22 +190,27 @@ const processedShardData = computed(() => {
 });
 
 // 响应式高度计算
-const scrollbarMaxHeight = ref("calc(100vh - 200px)");
+const scrollbarMaxHeight = ref("400px");
 const infoSectionRef = ref<HTMLElement | null>(null);
 
 const updateScrollbarHeight = () => {
   // 获取信息区域的实际高度
   const infoSectionHeight = infoSectionRef.value?.offsetHeight || 200;
-
-  // 减去信息区域高度和其他边距
-  scrollbarMaxHeight.value = `calc(100vh - ${infoSectionHeight + 100}px)`;
+  
+  // 计算剩余可用高度，减去信息区域高度、padding、margin等
+  const availableHeight = window.innerHeight - infoSectionHeight - 120; // 120px为其他元素的预估高度
+  
+  // 确保最小高度
+  scrollbarMaxHeight.value = `${Math.max(availableHeight, 200)}px`;
 };
 
 // 监听窗口大小变化
 onMounted(() => {
-  // 使用 nextTick 确保 DOM 已经渲染
+  // 使用 nextTick 确保 DOM 已经渲染，再加一个setTimeout确保布局完成
   nextTick(() => {
-    updateScrollbarHeight();
+    setTimeout(() => {
+      updateScrollbarHeight();
+    }, 100);
   });
   window.addEventListener("resize", updateScrollbarHeight);
 });
@@ -388,6 +393,12 @@ defineExpose({
         fetchIndicesInfo(),
         fetchShardData(),
       ]);
+      // 数据刷新后重新计算高度
+      nextTick(() => {
+        setTimeout(() => {
+          updateScrollbarHeight();
+        }, 100);
+      });
     }
   },
 });
@@ -436,6 +447,8 @@ const mergeCells = (row: ShardData, column: any, rowIndex: number) => {
   overflow: hidden;
   margin-top: 16px;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .info-card {
@@ -446,11 +459,13 @@ const mergeCells = (row: ShardData, column: any, rowIndex: number) => {
   height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .shard-list-container {
   flex: 1;
   height: 100%;
+  overflow: hidden;
 }
 
 :deep(.n-scrollbar) {
