@@ -1,6 +1,8 @@
 import { createRouter, createWebHashHistory, RouteRecordRaw } from 'vue-router'
 import ServerView from '../views/ServerView.vue'
 import DataView from '../views/DataView.vue'
+import SettingsView from '../views/SettingsView.vue'
+import LoginView from '../views/LoginView.vue'
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -16,12 +18,42 @@ const routes: Array<RouteRecordRaw> = [
     path: '/data',
     name: 'Data',
     component: DataView
+  },
+  {
+    path: '/settings',
+    name: 'Settings',
+    component: SettingsView
+  },
+  {
+    path: '/login',
+    name: 'Login',
+    component: LoginView
   }
 ]
 
 const router = createRouter({
   history: createWebHashHistory(),
   routes
+})
+
+// 路由守卫：检查认证状态
+router.beforeEach((to, from, next) => {
+  // 检查是否是受保护的路由
+  const protectedRoutes = ['/server', '/data', '/settings']
+  
+  // 从localStorage检查认证状态
+  const isAuthenticated = localStorage.getItem('github_access_token') !== null
+  
+  if (protectedRoutes.includes(to.path) && !isAuthenticated) {
+    // 如果是受保护的路由且未认证，重定向到登录页面
+    next('/login')
+  } else if (to.path === '/login' && isAuthenticated) {
+    // 如果是登录页面但已认证，重定向到主页
+    next('/server')
+  } else {
+    // 否则正常导航
+    next()
+  }
 })
 
 export default router

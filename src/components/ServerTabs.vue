@@ -703,11 +703,6 @@ const addServerTab = (server: Server) => {
 
     // 初始化查询tab数据
     queryTabs: [],
-    fieldOptions: [
-      { label: "ID", value: "id" },
-      { label: "Name", value: "name" },
-      { label: "Type", value: "type" },
-    ],
     operatorOptions: [
       { label: "等于", value: "equals" },
       { label: "包含", value: "contains" },

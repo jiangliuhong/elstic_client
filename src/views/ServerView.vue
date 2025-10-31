@@ -24,15 +24,21 @@
                 </n-icon>
               </template>
             </n-button>
-            <n-button type="primary" @click="addServer" title="添加服务器">
-              <template #icon>
-                <n-icon>
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
-                    <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-                  </svg>
-                </n-icon>
-              </template>
-            </n-button>
+            <n-dropdown 
+              trigger="click" 
+              :options="dropdownOptions" 
+              @select="handleDropdownSelect"
+            >
+              <n-button>
+                <template #icon>
+                  <n-icon>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
+                      <path fill="currentColor" d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
+                    </svg>
+                  </n-icon>
+                </template>
+              </n-button>
+            </n-dropdown>
           </div>
         </div>
         <div class="server-list">
@@ -124,6 +130,26 @@
         </div>
       </div>
     </div>
+    
+    <!-- 从Gist加载服务器配置的模态框 -->
+    <n-modal v-model:show="showLoadFromGistModal" preset="dialog" title="从GitHub Gist加载服务器配置">
+      <div style="padding: 20px;">
+        <n-form>
+          <n-form-item label="Gist URL">
+            <n-input 
+              v-model:value="gistUrl" 
+              placeholder="请输入GitHub Gist URL"
+            />
+          </n-form-item>
+          <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <n-button @click="showLoadFromGistModal = false">取消</n-button>
+            <n-button type="primary" @click="loadServersFromGist" :loading="loadingFromGist">
+              加载
+            </n-button>
+          </div>
+        </n-form>
+      </div>
+    </n-modal>
   </div>
 </template>
 
@@ -131,11 +157,14 @@
 import { ref, onMounted, computed } from 'vue'
 import { useMessage } from 'naive-ui'
 import type { FormInst, FormRules } from 'naive-ui'
-import { addConnectedServer, setActiveServer, getConnectedServers } from '../stores/serverStore'
+import { addConnectedServer, setActiveServer, getConnectedServers, loadServersFromGist as loadServersFromGistStore } from '../stores/serverStore'
 import { useRouter } from 'vue-router'
+import { getIsAuthenticated } from '../stores/authStore'
 import ElasticsearchService, { type Server } from '../services/elasticsearchService'
 
 
+
+const router = useRouter()
 
 const servers = ref<Server[]>([
   { id: '1', name: '本地服务器', url: 'http://139.159.160.236:9200', username: 'elastic', password: '!Imprt^Gk', connected: false }
@@ -147,6 +176,11 @@ const isEditing = ref(false)
 const formRef = ref<FormInst | null>(null)
 const filterText = ref('') // 添加过滤文本
 
+// Gist相关状态
+const showLoadFromGistModal = ref(false)
+const gistUrl = ref('')
+const loadingFromGist = ref(false)
+
 // 统一的表单模型
 const formModel = ref({
   id: '',
@@ -157,7 +191,32 @@ const formModel = ref({
 })
 
 const message = useMessage()
-const router = useRouter()
+
+// 下拉菜单选项
+const dropdownOptions = [
+  {
+    label: '添加服务器',
+    key: 'add-server'
+  },
+  {
+    label: '从Gist加载',
+    key: 'load-from-gist'
+  }
+]
+
+// 处理下拉菜单选择
+const handleDropdownSelect = (key: string) => {
+  if (key === 'add-server') {
+    addServer()
+  } else if (key === 'load-from-gist') {
+    // 检查用户是否已登录GitHub
+    if (!getIsAuthenticated()) {
+      message.warning('请先在设置中登录GitHub账户')
+      return
+    }
+    showLoadFromGistModal.value = true
+  }
+}
 
 // 过滤后的服务器列表
 const filteredServers = computed(() => {
@@ -348,9 +407,34 @@ const refreshServers = () => {
   // 这里可以实现刷新逻辑
 }
 
+// 从Gist加载服务器配置
+const loadServersFromGist = async () => {
+  if (!gistUrl.value) {
+    message.warning('请输入Gist URL')
+    return
+  }
+  
+  try {
+    loadingFromGist.value = true
+    await loadServersFromGistStore(gistUrl.value)
+    message.success('服务器配置已成功从GitHub Gist加载')
+    showLoadFromGistModal.value = false
+    gistUrl.value = ''
+  } catch (error) {
+    console.error('从Gist加载失败:', error)
+    message.error('从Gist加载失败: ' + (error as Error).message)
+  } finally {
+    loadingFromGist.value = false
+  }
+}
+
 // 组件挂载时可以加载服务器列表
 onMounted(() => {
   console.log('服务器管理页面已加载')
+  // 检查认证状态
+  if (!getIsAuthenticated()) {
+    router.replace('/login')
+  }
 })
 </script>
 

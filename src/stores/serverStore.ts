@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { saveServerConfigToGist, getServerConfigFromGist } from '../services/githubGistService'
 
 interface Server {
   id: string
@@ -67,6 +68,45 @@ const getActiveServer = () => {
   return activeServer.value
 }
 
+// 将服务器配置保存到GitHub Gist
+const saveServersToGist = async (): Promise<string> => {
+  try {
+    const serversData = {
+      servers: connectedServers.value,
+      activeServerId: activeServer.value?.id
+    }
+    
+    const gistUrl = await saveServerConfigToGist(serversData)
+    return gistUrl
+  } catch (error) {
+    console.error('Failed to save servers to gist:', error)
+    throw error
+  }
+}
+
+// 从GitHub Gist加载服务器配置
+const loadServersFromGist = async (gistUrl: string): Promise<void> => {
+  try {
+    const serversData = await getServerConfigFromGist(gistUrl)
+    
+    // 更新连接的服务器列表
+    if (serversData.servers && Array.isArray(serversData.servers)) {
+      connectedServers.value = serversData.servers
+    }
+    
+    // 设置活动服务器
+    if (serversData.activeServerId) {
+      const server = connectedServers.value.find(s => s.id === serversData.activeServerId)
+      if (server) {
+        activeServer.value = server
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load servers from gist:', error)
+    throw error
+  }
+}
+
 export {
   type Server,
   connectedServers,
@@ -75,5 +115,7 @@ export {
   removeConnectedServer,
   setActiveServer,
   getConnectedServers,
-  getActiveServer
+  getActiveServer,
+  saveServersToGist,
+  loadServersFromGist
 }

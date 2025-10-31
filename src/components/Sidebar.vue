@@ -42,7 +42,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-// 暂时移除插件导入以避免构建错误
+import { openGitHubLogin } from '../services/githubAuthService'
 
 // 定义事件发射器
 const emit = defineEmits(['menu-change'])
@@ -81,14 +81,19 @@ const setActiveMenu = (menu: string) => {
       router.push('/data')
       break
     case 'settings':
-      // 设置页面路由
+      router.push('/settings')
       break
   }
 }
 
-const openGitHub = () => {
-  // 暂时使用console.log替代实际的打开链接功能
-  console.log('打开GitHub')
+const openGitHub = async () => {
+  try {
+    // 打开GitHub登录页面
+    await openGitHubLogin()
+  } catch (error) {
+    console.error('打开GitHub登录页面失败:', error)
+    // 可以在这里添加用户提示
+  }
 }
 
 // 监听路由变化

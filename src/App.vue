@@ -1,14 +1,24 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import Sidebar from './components/Sidebar.vue'
 import { NMessageProvider } from 'naive-ui'
-import { RouterView } from 'vue-router'
+import { RouterView, useRouter, useRoute } from 'vue-router'
+import { getIsAuthenticated } from './stores/authStore'
 
 const activeMenu = ref('server')
+const router = useRouter()
+const route = useRoute()
 
 const handleMenuChange = (menu: string) => {
   activeMenu.value = menu
 }
+
+onMounted(() => {
+  // 检查认证状态
+  if (!getIsAuthenticated() && route.path !== '/login') {
+    router.replace('/login')
+  }
+})
 </script>
 
 <template>

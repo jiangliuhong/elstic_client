@@ -31,5 +31,16 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["elastic-client"]
+      }
+    },
+    "oauth": {
+      "redirectUrl": "http://localhost:1420/callback"
+    },
+    "opener": {}
   }
 }
