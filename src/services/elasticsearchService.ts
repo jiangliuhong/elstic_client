@@ -74,6 +74,34 @@ interface CatShardsResponse {
   };
 }
 
+interface IndexDataResponse {
+  hits: {
+    total: {
+      value: number;
+      relation: string;
+    };
+    hits: Array<{
+      _index: string;
+      _id: string;
+      _score: number;
+      _source: any;
+    }>;
+  };
+}
+
+interface IndexMappingResponse {
+  [indexName: string]: {
+    mappings: {
+      properties: {
+        [fieldName: string]: {
+          type: string;
+          [key: string]: any;
+        };
+      };
+    };
+  };
+}
+
 class ElasticsearchService {
   private config: ServerConfig;
 
@@ -176,6 +204,56 @@ class ElasticsearchService {
       throw error;
     }
   }
+
+  // 获取索引数据
+  async getIndexData(indexName: string, page: number = 1, pageSize: number = 10): Promise<IndexDataResponse> {
+    try {
+      const from = (page - 1) * pageSize;
+      const result = await invoke('get_index_data', {
+        url: this.config.url,
+        username: this.config.username,
+        password: this.config.password,
+        indexName,
+        from,
+        size: pageSize
+      });
+      return result as IndexDataResponse;
+    } catch (error) {
+      console.error('获取索引数据失败:', error);
+      throw error;
+    }
+  }
+
+  // 获取索引映射信息
+  async getIndexMapping(indexName: string): Promise<IndexMappingResponse> {
+    try {
+      const result = await invoke('get_index_mapping', {
+        url: this.config.url,
+        username: this.config.username,
+        password: this.config.password,
+        indexName
+      });
+      return result as IndexMappingResponse;
+    } catch (error) {
+      console.error('获取索引映射失败:', error);
+      throw error;
+    }
+  }
+
+  // 获取所有索引列表
+  async getIndices(): Promise<Array<{ name: string; status: string }>> {
+    try {
+      const result = await invoke('get_indices', {
+        url: this.config.url,
+        username: this.config.username,
+        password: this.config.password
+      });
+      return result as Array<{ name: string; status: string }>;
+    } catch (error) {
+      console.error('获取索引列表失败:', error);
+      throw error;
+    }
+  }
 }
 
 export default ElasticsearchService;
@@ -186,5 +264,7 @@ export type {
   ClusterInfoResponse,
   NodesInfoResponse,
   IndicesStatsResponse,
-  CatShardsResponse
+  CatShardsResponse,
+  IndexDataResponse,
+  IndexMappingResponse
 };

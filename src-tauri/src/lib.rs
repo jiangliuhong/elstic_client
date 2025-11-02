@@ -164,6 +164,81 @@ async fn get_shards(url: &str, username: Option<&str>, password: Option<&str>) -
 }
 
 #[tauri::command]
+async fn get_index_data(url: &str, username: Option<&str>, password: Option<&str>, index_name: &str, from: u32, size: u32) -> Result<Value, String> {
+    match create_elasticsearch_client(url, username, password) {
+        Ok(client) => {
+            let search_body = serde_json::json!({
+                "query": {
+                    "match_all": {}
+                },
+                "from": from,
+                "size": size
+            });
+            
+            match client
+                .search(elasticsearch::SearchParts::Index(&[index_name]))
+                .body(search_body)
+                .send()
+                .await {
+                    Ok(response) => {
+                        match response.json::<Value>().await {
+                            Ok(json) => Ok(json),
+                            Err(e) => Err(format!("Failed to parse response: {}", e)),
+                        }
+                    },
+                    Err(e) => Err(format!("Failed to get index data: {}", e)),
+                }
+        },
+        Err(e) => Err(format!("Failed to create Elasticsearch client: {}", e)),
+    }
+}
+
+#[tauri::command]
+async fn get_index_mapping(url: &str, username: Option<&str>, password: Option<&str>, index_name: &str) -> Result<Value, String> {
+    match create_elasticsearch_client(url, username, password) {
+        Ok(client) => {
+            match client
+                .indices()
+                .get_mapping(elasticsearch::indices::IndicesGetMappingParts::Index(&[index_name]))
+                .send()
+                .await {
+                    Ok(response) => {
+                        match response.json::<Value>().await {
+                            Ok(json) => Ok(json),
+                            Err(e) => Err(format!("Failed to parse response: {}", e)),
+                        }
+                    },
+                    Err(e) => Err(format!("Failed to get index mapping: {}", e)),
+                }
+        },
+        Err(e) => Err(format!("Failed to create Elasticsearch client: {}", e)),
+    }
+}
+
+#[tauri::command]
+async fn get_indices(url: &str, username: Option<&str>, password: Option<&str>) -> Result<Value, String> {
+    match create_elasticsearch_client(url, username, password) {
+        Ok(client) => {
+            match client
+                .cat()
+                .indices(elasticsearch::cat::CatIndicesParts::None)
+                .format("json")
+                .send()
+                .await {
+                    Ok(response) => {
+                        match response.json::<Value>().await {
+                            Ok(json) => Ok(json),
+                            Err(e) => Err(format!("Failed to parse response: {}", e)),
+                        }
+                    },
+                    Err(e) => Err(format!("Failed to get indices: {}", e)),
+                }
+        },
+        Err(e) => Err(format!("Failed to create Elasticsearch client: {}", e)),
+    }
+}
+
+#[tauri::command]
 async fn test_elasticsearch_connection(url: &str, username: Option<&str>, password: Option<&str>) -> Result<Value, String> {
     match create_elasticsearch_client(url, username, password) {
         Ok(client) => {
@@ -438,7 +513,7 @@ fn extract_gist_id(url: &str) -> Result<String, String> {
 use std::sync::Arc;
 use std::thread;
 use tiny_http::{Server, Response, StatusCode};
-use tauri::{Emitter, Manager};
+use tauri::Emitter;
 
 // 启动本地HTTP服务器处理OAuth回调
 #[tauri::command]
@@ -446,7 +521,7 @@ async fn start_oauth_server(app_handle: tauri::AppHandle) -> Result<u16, String>
     // 找一个可用端口
     let port = find_available_port().map_err(|e| format!("Failed to find available port: {}", e))?;
     
-    let server_url = format!("http://localhost:{}", port);
+    let _server_url = format!("http://localhost:{}", port);
     let auth_state = Arc::new(Mutex::new(GitHubAuthState::new()));
     
     // 克隆状态以供服务器使用
@@ -642,6 +717,9 @@ pub fn run() {
             get_nodes_info,
             get_indices_stats,
             get_shards,
+            get_index_data,
+            get_index_mapping,
+            get_indices,
             start_github_auth,
             finish_github_auth,
             logout_github,

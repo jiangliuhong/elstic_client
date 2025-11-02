@@ -76,11 +76,16 @@
                   :selected-data="serverTab.selectedData"
                   :data-columns="serverTab.dataColumns"
                   :pagination="serverTab.pagination"
+                  :field-options="serverTab.fieldOptions"
+                  :selected-fields="serverTab.selectedFields"
                   @update:selectedIndex="
                     (index) =>
                       updateServerData(serverTab.id, 'selectedIndex', index)
                   "
                   @refresh="() => refreshServerData(serverTab.id)"
+                  @loadIndexData="(index) => loadIndexData(serverTab.id, index)"
+                  @update:pagination="(pagination) => updateServerData(serverTab.id, 'pagination', pagination)"
+                  @update:selectedFields="(fields) => updateSelectedFields(serverTab.id, fields)"
                 />
               </n-tab-pane>
 
@@ -130,7 +135,7 @@
                           <!-- 2. 下拉框（字段选择） -->
                           <n-select
                             v-model:value="condition.field"
-                            :options="serverTab.fieldOptions"
+                            :options="serverTab.queryFieldOptions"
                             placeholder="选择字段"
                             filterable
                             style="width: 150px"
@@ -295,13 +300,27 @@
                     title="查询结果"
                     v-show="queryTab.result && queryTab.result.length > 0"
                   >
-                    <n-data-table
-                      :columns="serverTab.resultColumns"
-                      :data="queryTab.result"
-                      :bordered="true"
-                      :single-line="false"
-                      :pagination="serverTab.resultPagination"
-                    />
+                    <div class="query-result-container">
+                      <n-data-table
+                        :columns="serverTab.resultColumns"
+                        :data="queryTab.result"
+                        :bordered="true"
+                        :single-line="false"
+                        :pagination="false"
+                        :scroll-x="800"
+                        :max-height="queryResultTableHeight"
+                      />
+                      
+                      <div class="pagination-container">
+                        <n-pagination
+                          v-model:page="serverTab.resultPagination.page"
+                          v-model:page-size="serverTab.resultPagination.pageSize"
+                          :item-count="queryTab.result.length"
+                          :page-sizes="[10, 20, 50]"
+                          show-size-picker
+                        />
+                      </div>
+                    </div>
                   </n-card>
                 </n-space>
               </n-tab-pane>
@@ -389,6 +408,8 @@ import {
   NRadioButton,
   NCard,
   NDataTable,
+  NPagination,
+  NText,
 } from "naive-ui";
 import { useRouter } from "vue-router";
 import {
@@ -442,12 +463,17 @@ interface ServerTabData {
   selectedIndex: string | null;
   selectedData: Array<any>;
   dataColumns: Array<{ title: string; key: string }>;
+  allDataColumns: Array<{ title: string; key: string; minWidth?: number }>;
   pagination: {
     page: number;
     pageSize: number;
     showSizePicker: boolean;
     pageSizes: number[];
+    itemCount?: number;
+    pageCount?: number;
   };
+  selectedFields: Array<string>;
+  fieldOptions: Array<{ label: string; value: string }>;
 
   // 查询tab数据
   queryTabs: Array<{
@@ -477,7 +503,7 @@ interface ServerTabData {
     };
     result: Array<any>;
   }>;
-  fieldOptions: Array<{ label: string; value: string }>;
+  queryFieldOptions: Array<{ label: string; value: string }>;
   operatorOptions: Array<{ label: string; value: string }>;
   resultColumns: Array<{ title: string; key: string }>;
   resultPagination: {
@@ -517,6 +543,15 @@ const tabContentHeight = computed(() => {
   return `${windowHeight.value - 120}px`;
 });
 
+// 计算查询结果表格的动态高度
+const queryResultTableHeight = computed(() => {
+  // 减去其他元素的高度：查询表单(约400px) + 标题(约50px) + 分页控件(约70px) + 间距 + 额外40px缓冲
+  // 确保至少为分页组件预留110px高度
+  const availableHeight = windowHeight.value - 560
+  const minHeight = Math.max(110, availableHeight) // 最小高度降低到110px
+  return minHeight
+});
+
 // 监听窗口大小变化
 const handleResize = () => {
   windowHeight.value = window.innerHeight;
@@ -537,15 +572,15 @@ const connectedServers = computed(() => getConnectedServers());
 watch(
   connectedServers,
   (servers) => {
-    nextTick(() => {
-      syncTabsWithServers();
+    nextTick(async () => {
+      await syncTabsWithServers();
     });
   },
   { immediate: true, deep: true }
 );
 
 // 同步页签与服务器连接状态
-const syncTabsWithServers = () => {
+const syncTabsWithServers = async () => {
   const currentServerIds = new Set(serverTabs.value.map((tab) => tab.id));
   const connectedServerIds = new Set(
     connectedServers.value.map((server) => server.id)
@@ -557,11 +592,11 @@ const syncTabsWithServers = () => {
   );
 
   // 添加新连接的服务器页签
-  connectedServers.value.forEach((server) => {
+  for (const server of connectedServers.value) {
     if (!currentServerIds.has(server.id)) {
-      addServerTab(server);
+      await addServerTab(server);
     }
-  });
+  }
 
   // 如果没有活动页签，设置第一个为活动页签
   if (serverTabs.value.length > 0 && !activeTabId.value) {
@@ -570,7 +605,7 @@ const syncTabsWithServers = () => {
 };
 
 // 添加服务器页签
-const addServerTab = (server: Server) => {
+const addServerTab = async (server: Server) => {
   // 初始分片数据
   const initialShardData = [
     {
@@ -635,10 +670,28 @@ const addServerTab = (server: Server) => {
   const uniqueIndexes = [
     ...new Set(initialShardData.map((item) => item.index)),
   ];
-  const indexOptions = uniqueIndexes.map((index) => ({
+  let indexOptions = uniqueIndexes.map((index) => ({
     label: index,
     value: index,
   }));
+
+  // 尝试从实际服务器获取索引列表
+  try {
+    const { default: ElasticsearchService } = await import('../services/elasticsearchService');
+    const service = new ElasticsearchService({
+      url: server.url,
+      username: server.username,
+      password: server.password
+    });
+    
+    const indices = await service.getIndices();
+    indexOptions = indices.map(index => ({
+      label: index.name,
+      value: index.name
+    }));
+  } catch (error) {
+    console.warn("无法获取实际索引列表，使用默认数据:", error);
+  }
 
   const newTab: ServerTabData = {
     id: server.id,
@@ -681,10 +734,16 @@ const addServerTab = (server: Server) => {
     selectedIndex: null,
     selectedData: [],
     dataColumns: [
-      { title: "ID", key: "id" },
-      { title: "Name", key: "name" },
-      { title: "Type", key: "type" },
-      { title: "Created", key: "created" },
+      { title: "ID", key: "id", minWidth: 120 },
+      { title: "Name", key: "name", minWidth: 150 },
+      { title: "Type", key: "type", minWidth: 100 },
+      { title: "Created", key: "created", minWidth: 120 },
+    ],
+    allDataColumns: [
+      { title: "ID", key: "id", minWidth: 120 },
+      { title: "Name", key: "name", minWidth: 150 },
+      { title: "Type", key: "type", minWidth: 100 },
+      { title: "Created", key: "created", minWidth: 120 },
     ],
     pagination: {
       page: 1,
@@ -692,9 +751,11 @@ const addServerTab = (server: Server) => {
       showSizePicker: true,
       pageSizes: [10, 20, 50],
     },
+    selectedFields: [],
+    fieldOptions: [],
 
     // 初始化查询相关数据
-    fieldOptions: [
+    queryFieldOptions: [
       { label: "id", value: "id" },
       { label: "name", value: "name" },
       { label: "type", value: "type" },
@@ -710,9 +771,9 @@ const addServerTab = (server: Server) => {
       { label: "小于", value: "less" },
     ],
     resultColumns: [
-      { title: "ID", key: "id" },
-      { title: "Name", key: "name" },
-      { title: "Score", key: "score" },
+      { title: "ID", key: "id", minWidth: 120 },
+      { title: "Name", key: "name", minWidth: 150 },
+      { title: "Score", key: "score", minWidth: 80 },
     ],
     resultPagination: {
       page: 1,
@@ -787,6 +848,33 @@ const updateServerData = (serverId: string, dataType: string, data: any) => {
     if (dataType === "selectedIndex" && data) {
       fetchIndexFields(serverId, data);
     }
+
+    // 如果更新的是分页信息，重新加载数据
+    if (dataType === "pagination" && tab.selectedIndex) {
+      loadIndexData(serverId, tab.selectedIndex);
+    }
+  }
+};
+
+// 更新选择的字段
+const updateSelectedFields = (serverId: string, fields: Array<string>) => {
+  const tab = serverTabs.value.find((t) => t.id === serverId);
+  if (!tab) return;
+
+  // 更新选择的字段
+  tab.selectedFields = fields;
+
+  // 根据选择的字段过滤列
+  if (fields.length === 0) {
+    // 如果没有选择任何字段，显示所有列
+    tab.dataColumns = [...tab.allDataColumns];
+  } else {
+    // 只显示选择的字段列
+    const filteredColumns = tab.allDataColumns.filter(column => 
+      fields.includes(column.key) || 
+      ['_id', '_score'].includes(column.key) // 始终显示ID和Score列
+    );
+    tab.dataColumns = filteredColumns;
   }
 };
 
@@ -796,39 +884,149 @@ const fetchIndexFields = async (serverId: string, indexName: string) => {
   if (!tab) return;
 
   try {
-    // 这里应该调用实际的Elasticsearch API获取字段映射
-    // 暂时使用模拟数据
-    const mockFields = [
-      { label: "id", value: "id" },
-      { label: "name", value: "name" },
-      { label: "type", value: "type" },
-      { label: "created", value: "created" },
-      { label: "updated", value: "updated" },
-      { label: "status", value: "status" },
-      { label: "category", value: "category" },
-    ];
+    // 导入 ElasticsearchService
+    const { default: ElasticsearchService } = await import('../services/elasticsearchService');
+    
+    // 创建服务实例
+    const service = new ElasticsearchService({
+      url: tab.server.url,
+      username: tab.server.username,
+      password: tab.server.password
+    });
 
-    tab.fieldOptions = mockFields;
+    // 获取索引映射
+    const mappingResponse = await service.getIndexMapping(indexName);
+    
+    // 提取字段信息
+    const fields = Object.keys(mappingResponse[indexName]?.mappings?.properties || {});
+    
+    // 构建字段选项
+    const fieldOptions = fields.map(field => ({
+      label: field,
+      value: field
+    }));
+
+    // 更新数据浏览和查询的字段选项
+    tab.fieldOptions = fieldOptions;
+    tab.queryFieldOptions = fieldOptions;
   } catch (error) {
     console.error("获取索引字段失败:", error);
     // 使用默认字段
-    tab.fieldOptions = [
+    const defaultFields = [
       { label: "id", value: "id" },
       { label: "name", value: "name" },
       { label: "type", value: "type" },
     ];
+    tab.fieldOptions = defaultFields;
+    tab.queryFieldOptions = defaultFields;
   }
 };
 
 // 刷新服务器数据
 const refreshServerData = (serverId: string) => {
   const tab = serverTabs.value.find((t) => t.id === serverId);
-  if (tab) {
-    // 模拟加载数据
-    tab.selectedData = [
-      { id: 1, name: "Item 1", type: "Type A", created: "2023-01-01" },
-      { id: 2, name: "Item 2", type: "Type B", created: "2023-01-02" },
+  if (tab && tab.selectedIndex) {
+    loadIndexData(serverId, tab.selectedIndex);
+  }
+};
+
+// 加载索引数据
+const loadIndexData = async (serverId: string, indexName: string) => {
+  const tab = serverTabs.value.find((t) => t.id === serverId);
+  if (!tab) return;
+
+  try {
+    // 导入 ElasticsearchService
+    const { default: ElasticsearchService } = await import('../services/elasticsearchService');
+    
+    // 创建服务实例
+    const service = new ElasticsearchService({
+      url: tab.server.url,
+      username: tab.server.username,
+      password: tab.server.password
+    });
+
+    // 获取索引数据
+    const response = await service.getIndexData(
+      indexName, 
+      tab.pagination.page, 
+      tab.pagination.pageSize
+    );
+
+    // 获取索引映射以确定列
+    const mappingResponse = await service.getIndexMapping(indexName);
+    
+    // 提取字段信息
+    const fields = Object.keys(mappingResponse[indexName]?.mappings?.properties || {});
+    
+    // 构建所有列配置
+    const allColumns = fields.map(field => ({
+      title: field,
+      key: field,
+      ellipsis: true,
+      resizable: true,
+      minWidth: 120
+    }));
+
+    // 添加 ID 列
+    allColumns.unshift({
+      title: 'ID',
+      key: '_id',
+      width: 150,
+      minWidth: 120
+    });
+
+    // 添加得分列
+    allColumns.push({
+      title: 'Score',
+      key: '_score',
+      width: 100,
+      minWidth: 80
+    });
+
+    // 保存所有列配置
+    tab.allDataColumns = allColumns;
+
+    // 初始化字段选项
+    tab.fieldOptions = fields.map(field => ({
+      label: field,
+      value: field
+    }));
+
+    // 初始化选择的字段（默认选择所有字段）
+    tab.selectedFields = fields;
+
+    // 初始显示所有列
+    tab.dataColumns = [...allColumns];
+
+    // 转换数据格式
+    const data = response.hits.hits.map(hit => ({
+      _id: hit._id,
+      _score: hit._score,
+      ...hit._source
+    }));
+
+    // 更新标签页数据
+    updateServerData(serverId, 'selectedData', data);
+    
+    // 更新分页总数
+    updateServerData(serverId, 'pagination', {
+      ...tab.pagination,
+      itemCount: response.hits.total.value,
+      pageCount: Math.ceil(response.hits.total.value / tab.pagination.pageSize)
+    });
+    
+  } catch (error) {
+    console.error('加载索引数据失败:', error);
+    // 使用模拟数据作为后备
+    tab.selectedData = [];
+    tab.allDataColumns = [
+      { title: 'ID', key: '_id', minWidth: 120 },
+      { title: 'Error', key: 'error', minWidth: 120 }
     ];
+    tab.dataColumns = [...tab.allDataColumns];
+    tab.fieldOptions = [];
+    tab.selectedFields = [];
   }
 };
 
@@ -1044,6 +1242,22 @@ const handleQueryTabClose = (serverId: string, tabId: string) => {
   width: 100%;
   max-width: 500px;
   text-align: center;
+}
+
+/* 查询结果容器样式 */
+.query-result-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 250px; /* 确保容器有最小高度 */
+}
+
+.pagination-container {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0;
+  min-height: 60px; /* 确保分页组件有足够的空间 */
+  flex-shrink: 0; /* 防止分页组件被压缩 */
 }
 
 /* 确保页签内容高度正确 */
