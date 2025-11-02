@@ -11,9 +11,9 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useMessage } from 'naive-ui'
 import { listen } from '@tauri-apps/api/event'
-import { checkAuthStatus, getCurrentUser } from '../stores/authStore'
+import { checkAuthStatus, getCurrentUser, setAuth } from '../stores/authStore'
+import { handleGitHubCallback } from '../services/githubAuthService'
 
 import { UnlistenFn } from '@tauri-apps/api/event'
 
@@ -27,9 +27,22 @@ onMounted(async () => {
     message.value = '请在浏览器中完成GitHub登录...'
     
     // 监听OAuth成功事件
-    unlisten = await listen('oauth-success', () => {
+    unlisten = await listen('oauth-success', (event: any) => {
+      console.log('GitHubCallback收到OAuth成功事件:', event)
       message.value = '认证成功！正在跳转...'
-      console.log('收到OAuth成功事件，准备跳转到 /server')
+      
+      // 如果事件包含用户信息，直接更新认证状态
+      if (event.payload && event.payload.access_token && event.payload.user) {
+        console.log('GitHubCallback更新认证状态:', event.payload)
+        setAuth(event.payload.access_token, {
+          id: event.payload.user.id,
+          login: event.payload.user.login,
+          avatar_url: event.payload.user.avatar_url,
+          name: event.payload.user.name,
+          email: event.payload.user.email
+        })
+        console.log('GitHubCallback认证状态已更新，当前状态:', checkAuthStatus())
+      }
       
       // 等待一小段时间确保认证状态已更新
       setTimeout(() => {

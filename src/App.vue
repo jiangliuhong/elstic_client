@@ -1,22 +1,43 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import Sidebar from './components/Sidebar.vue'
 import { NMessageProvider } from 'naive-ui'
 import { RouterView, useRouter, useRoute } from 'vue-router'
-import { getIsAuthenticated } from './stores/authStore'
+import { getIsAuthenticated, setAuth } from './stores/authStore'
+import { listen } from '@tauri-apps/api/event'
 
 const activeMenu = ref('server')
 const router = useRouter()
 const route = useRoute()
+let unlisten: any = null
 
 const handleMenuChange = (menu: string) => {
   activeMenu.value = menu
 }
 
-onMounted(() => {
-  // 检查认证状态
-  if (!getIsAuthenticated() && route.path !== '/login') {
-    router.replace('/login')
+onMounted(async () => {
+  // 全局监听OAuth成功事件
+  unlisten = await listen('oauth-success', (event: any) => {
+    console.log('收到全局OAuth成功事件:', event)
+    
+    // 如果事件包含用户信息，直接更新认证状态
+    if (event.payload && event.payload.access_token && event.payload.user) {
+      console.log('更新认证状态:', event.payload)
+      setAuth(event.payload.access_token, {
+        id: event.payload.user.id,
+        login: event.payload.user.login,
+        avatar_url: event.payload.user.avatar_url,
+        name: event.payload.user.name,
+        email: event.payload.user.email
+      })
+      console.log('认证状态已更新，当前状态:', getIsAuthenticated())
+    }
+  })
+})
+
+onUnmounted(() => {
+  if (unlisten) {
+    unlisten()
   }
 })
 </script>

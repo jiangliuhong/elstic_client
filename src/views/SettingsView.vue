@@ -116,7 +116,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useRouter } from 'vue-router'
 import { getIsAuthenticated, getUser } from '../stores/authStore'
@@ -126,9 +126,9 @@ import { saveServersToGist as saveServersToGistStore, loadServersFromGist as loa
 const message = useMessage()
 const router = useRouter()
 
-// 认证状态
-const isAuthenticated = ref(false)
-const githubUser = ref(null)
+// 认证状态 - 使用计算属性实现响应式
+const isAuthenticated = computed(() => getIsAuthenticated())
+const githubUser = computed(() => getUser())
 
 // 设置选项
 const theme = ref('light')
@@ -146,13 +146,7 @@ const gistUrl = ref('')
 const gistUrlInput = ref('')
 const showLoadModalFlag = ref(false)
 
-// 检查认证状态
-const checkAuthStatus = () => {
-  isAuthenticated.value = getIsAuthenticated()
-  if (isAuthenticated.value) {
-    githubUser.value = getUser()
-  }
-}
+
 
 // 处理GitHub登录
 const handleGitHubLogin = async () => {
@@ -169,7 +163,6 @@ const handleGitHubLogin = async () => {
 const handleLogout = async () => {
   try {
     await logout()
-    checkAuthStatus()
     message.success('已成功登出GitHub账户')
   } catch (error) {
     console.error('登出失败:', error)
@@ -231,13 +224,9 @@ const loadServersFromGist = async () => {
   }
 }
 
-// 组件挂载时检查认证状态
+// 组件挂载时初始化
 onMounted(() => {
-  checkAuthStatus()
-  // 检查认证状态，如果未登录则重定向到登录页面
-  if (!getIsAuthenticated()) {
-    router.replace('/login')
-  }
+  // 不再强制重定向到登录页面，允许未登录用户访问设置页面
 })
 </script>
 

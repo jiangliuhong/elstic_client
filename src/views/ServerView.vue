@@ -431,10 +431,7 @@ const loadServersFromGist = async () => {
 // 组件挂载时可以加载服务器列表
 onMounted(() => {
   console.log('服务器管理页面已加载')
-  // 检查认证状态
-  if (!getIsAuthenticated()) {
-    router.replace('/login')
-  }
+  // 不再强制检查认证状态，允许未登录用户使用服务器功能
 })
 </script>
 

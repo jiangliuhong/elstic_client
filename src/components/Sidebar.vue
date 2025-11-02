@@ -30,7 +30,7 @@
       <div 
         class="menu-item" 
         :class="{ active: activeMenu === 'github' }"
-        @click="openGitHub"
+        @click="openGitHubRepo"
       >
         <div class="menu-icon">🐙</div>
         <div class="menu-text">GITHUB</div>
@@ -40,9 +40,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { openGitHubLogin } from '../services/githubAuthService'
+
 
 // 定义事件发射器
 const emit = defineEmits(['menu-change'])
@@ -50,6 +50,8 @@ const emit = defineEmits(['menu-change'])
 const activeMenu = ref('server')
 const router = useRouter()
 const route = useRoute()
+
+
 
 // 根据当前路由设置活动菜单
 const updateActiveMenuFromRoute = () => {
@@ -86,13 +88,13 @@ const setActiveMenu = (menu: string) => {
   }
 }
 
-const openGitHub = async () => {
+const openGitHubRepo = async () => {
   try {
-    // 打开GitHub登录页面
-    await openGitHubLogin()
+    // 打开项目源码仓库
+    const { openUrl } = await import('@tauri-apps/plugin-opener')
+    await openUrl('https://github.com/jiangliuhong/elstic_client')
   } catch (error) {
-    console.error('打开GitHub登录页面失败:', error)
-    // 可以在这里添加用户提示
+    console.error('打开GitHub仓库失败:', error)
   }
 }
 
@@ -157,4 +159,6 @@ onMounted(() => {
 .menu-text {
   font-size: 12px;
 }
+
+
 </style>

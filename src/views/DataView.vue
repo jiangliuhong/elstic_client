@@ -13,10 +13,7 @@ import ServerTabs from '../components/ServerTabs.vue'
 const router = useRouter()
 
 onMounted(() => {
-  // 检查认证状态
-  if (!getIsAuthenticated()) {
-    router.replace('/login')
-  }
+  // 不再强制检查认证状态，允许未登录用户使用数据浏览功能
 })
 </script>
 

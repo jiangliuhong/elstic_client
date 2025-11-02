@@ -36,22 +36,16 @@ const router = createRouter({
   routes
 })
 
-// 路由守卫：检查认证状态
+// 路由守卫：简化认证检查
 router.beforeEach((to, from, next) => {
-  // 检查是否是受保护的路由
-  const protectedRoutes = ['/server', '/data', '/settings']
-  
   // 从localStorage检查认证状态
   const isAuthenticated = localStorage.getItem('github_access_token') !== null
   
-  if (protectedRoutes.includes(to.path) && !isAuthenticated) {
-    // 如果是受保护的路由且未认证，重定向到登录页面
-    next('/login')
-  } else if (to.path === '/login' && isAuthenticated) {
+  if (to.path === '/login' && isAuthenticated) {
     // 如果是登录页面但已认证，重定向到主页
     next('/server')
   } else {
-    // 否则正常导航
+    // 否则正常导航，移除其他路由的登录限制
     next()
   }
 })

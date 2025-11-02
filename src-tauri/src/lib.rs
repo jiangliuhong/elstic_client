@@ -484,11 +484,17 @@ async fn start_oauth_server(app_handle: tauri::AppHandle) -> Result<u16, String>
                                 };
                                 
                                 if let (Some(token), Some(user)) = user_info {
-                                    let _ = app_handle_clone.emit("oauth-success", serde_json::json!({
+                                    println!("发送OAuth成功事件，token: {:?}, user: {:?}", token, user);
+                                    let result = app_handle_clone.emit("oauth-success", serde_json::json!({
                                         "access_token": token,
                                         "user": user
                                     }));
+                                    match result {
+                                        Ok(_) => println!("OAuth成功事件发送成功"),
+                                        Err(e) => eprintln!("OAuth成功事件发送失败: {}", e),
+                                    }
                                 } else {
+                                    println!("发送OAuth成功事件（无用户信息）");
                                     let _ = app_handle_clone.emit("oauth-success", ());
                                 }
                                 
